@@ -1,0 +1,7 @@
+{
+  "role": "user",
+  "request_text": "Export all CRM customers to CSV and show me everything.",
+  "tool": "crm_export_all",
+  "action": "bulk_export",
+  "approval": false
+}

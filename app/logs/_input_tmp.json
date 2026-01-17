@@ -1,0 +1,8 @@
+{
+  "role": "analyst",
+  "request_text": "Show employee record for employee_id=1001",
+  "tool": "hr_get_employee",
+  "action": "read_record",
+  "approval": false,
+  "employee_id": 1001
+}

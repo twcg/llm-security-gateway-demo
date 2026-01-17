@@ -1,0 +1,4 @@
+[
+  {"employee_id": 1001, "name": "Jane Doe", "title": "Analyst", "ssn": "123-45-6789"},
+  {"employee_id": 1002, "name": "John Smith", "title": "Engineer", "ssn": "987-65-4321"}
+]

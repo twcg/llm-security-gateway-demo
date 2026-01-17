@@ -1,0 +1,4 @@
+Commands: 
+
+HR:./scripts/demo.sh
+Enginer: SHOW_AUDIT=1 ./scripts/demo.sh

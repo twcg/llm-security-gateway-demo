@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs
+app/logs/*.jsonl
+
+# macOS
+.DS_Store
+
+# Test inputs (generated ok to keep or ignore; I keep them tracked by default)
+# tests/inputs/*.json

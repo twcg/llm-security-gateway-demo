@@ -1,0 +1,4 @@
+{
+  "1001": { "employee_id": 1001, "name": "Jane Doe", "title": "Analyst", "ssn": "123-45-6789" },
+  "1002": { "employee_id": 1002, "name": "John Smith", "title": "Manager", "ssn": "987-65-4321" }
+}
