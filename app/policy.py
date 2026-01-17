@@ -1,65 +1,95 @@
 from __future__ import annotations
 
-import json
-import re
+import os
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List
+import shutil
+from typing import Dict, List, Any, Tuple
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CONFTEST = REPO_ROOT / "tools" / "conftest"
-POLICY_DIR = REPO_ROOT / "policies"
-TMP_INPUT = REPO_ROOT / "app" / "logs" / "_input_tmp.json"
-
-ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
-def _strip_ansi(s: str) -> str:
-    return ANSI_RE.sub("", s)
-
-
-def _extract_denies(stdout: str) -> List[str]:
+def _pick_conftest_bin() -> str:
     """
-    Conftest prints deny messages like:
-      FAIL - <file> - <namespace> - DENY: <message>
-    We normalize those into just the message strings.
+    Prefer CI/system conftest on GitHub Actions, but keep local offline support.
+
+    Order:
+      1) CONFTEST_BIN env var (e.g., "conftest" or "/usr/local/bin/conftest")
+      2) system PATH lookup (shutil.which("conftest"))
+      3) repo-pinned binary at ./tools/conftest (your offline Mac setup)
+    """
+    env_bin = os.environ.get("CONFTEST_BIN")
+    if env_bin:
+        return env_bin
+
+    which_bin = shutil.which("conftest")
+    if which_bin:
+        return which_bin
+
+    return str(REPO_ROOT / "tools" / "conftest")
+
+
+def _clean_conftest_output(stdout: str) -> List[str]:
+    """
+    conftest outputs lines like:
+      FAIL - file - namespace - message
+    We want just the message part, clean and executive-friendly.
     """
     reasons: List[str] = []
-    for line in _strip_ansi(stdout).splitlines():
-        m = re.search(r"DENY:\s*(.*)$", line)
-        if m:
-            reasons.append(m.group(1).strip())
+    for line in (stdout or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("FAIL - "):
+            # Keep only the last " - " segment as the message
+            parts = line.split(" - ")
+            reasons.append(parts[-1].strip())
+        elif line.startswith("WARN - "):
+            # Optional: include warnings if you want
+            parts = line.split(" - ")
+            reasons.append(f"WARNING: {parts[-1].strip()}")
     return reasons
 
 
 def evaluate_policies(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Returns: {"allow": bool, "reasons": [str, ...]}
-    allow=True when conftest exits 0 (no deny rules fired).
-    allow=False when conftest exits non-zero (one or more deny rules fired).
+    Uses Conftest: if policies produce any deny messages, conftest exits non-zero.
+
+    Returns:
+      {
+        "allow": bool,
+        "reasons": [str, ...]
+      }
     """
-    TMP_INPUT.parent.mkdir(parents=True, exist_ok=True)
-    TMP_INPUT.write_text(json.dumps(payload, indent=2))
+    conftest_bin = _pick_conftest_bin()
+
+    # Write payload to a temp input file under app/logs (exists in repo)
+    logs_dir = REPO_ROOT / "app" / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    input_path = logs_dir / "_input_tmp.json"
+    input_path.write_text(__import__("json").dumps(payload, indent=2))
 
     cmd = [
-        str(CONFTEST),
+        conftest_bin,
         "test",
-        str(TMP_INPUT),
+        str(input_path),
         "-p",
-        str(POLICY_DIR),
+        str(REPO_ROOT / "policies"),
+        "--all-namespaces",
     ]
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
-    stdout = proc.stdout or ""
-    stderr = proc.stderr or ""
-    combined = (stdout + "\n" + stderr).strip()
 
+    # conftest exit code:
+    #   0 => allow (no deny rules fired)
+    #   non-zero => deny (one or more deny rules fired)
     if proc.returncode == 0:
         return {"allow": True, "reasons": ["All policies passed"]}
 
-    reasons = _extract_denies(combined)
+    reasons = _clean_conftest_output(proc.stdout)
     if not reasons:
-        # Fallback if output format changes
-        reasons = [_strip_ansi(combined)] if combined else ["Policy denied (no details)"]
+        # Fallback if formatting changes
+        reasons = [proc.stdout.strip() or "Policy denied (no details)"]
 
     return {"allow": False, "reasons": reasons}
