@@ -24,15 +24,8 @@ The gateway enforces security decisions before any AI tool is executed:
 ✔ No cloud credentials
 ✔ Deterministic, testable decisions
 
-User / AI Prompt
-        ↓
- Security Gateway
-   ├── Prompt Injection Detection
-   ├── Tool Allowlist Enforcement
-   ├── PII Redaction
-   ├── Audit Logging
-        ↓
-  Mock Tool Execution (Local)
+User / AI Prompt >  Security Gateway > Prompt Injection Detection > Tool Allowlist Enforcement > PII Redaction > Audit Logging > Mock Tool Execution (Local)
+
 
   app/
   gateway.py        # Request handling + enforcement flow
